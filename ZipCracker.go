@@ -7,12 +7,15 @@ import (
 	"log"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	zip "github.com/yeka/zip"
 )
 
 func main() {
+	//Creating a channel for the goroutine
+	c := make(chan string)
 	//vars for the input
 	var list string
 	var zipFile string
@@ -57,11 +60,25 @@ func main() {
 	i := 0
 	p := 0
 
+	//Creating a new wait group
+	var wg sync.WaitGroup
+	wg.Add(len(password))
+
 	//The wordlist brute force loop that inputs different passwords
 	for range password {
-		//This inputs the password and returns the result
-		fmt.Println("password attempt:", password[i])
-		x := fmt.Sprint(attempt(r, password[i]))
+		//This goroutine inputs the password and returns the result
+		//Expected the goroutine to speed up the process. It shifted the time needed from 3s to 2.6s (14-20% boost)
+		go func(i int) {
+			defer wg.Done()
+			//Sends array item to the function
+			fmt.Println("password attempt:", password[i])
+			x := fmt.Sprint(attempt(r, password[i]))
+			//forwards the function result into a channel
+			c <- x
+		}(i)
+
+		//Receving info from the channel and printing it
+		x := <-c
 		fmt.Print(x)
 		//if condition to see when the posswords has been found
 		if strings.HasPrefix(x, "Password correct") {
@@ -76,6 +93,8 @@ func main() {
 		i++
 		p++
 	}
+
+	wg.Wait()
 
 }
 
